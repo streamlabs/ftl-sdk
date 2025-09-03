@@ -78,7 +78,7 @@ ftl_status_t _init_control_connection(ftl_stream_configuration_private_t *ftl) {
       FTL_LOG(ftl, FTL_LOG_DEBUG, "failed to create socket. error: %s", get_socket_error());
       continue;
     }
-    
+
     if (p->ai_family == AF_INET) {
       struct sockaddr_in *ipv4_addr = (struct sockaddr_in *)p->ai_addr;
       inet_ntop(p->ai_family, &ipv4_addr->sin_addr, ingest_ip, sizeof(ingest_ip));
@@ -130,7 +130,7 @@ ftl_status_t _init_control_connection(ftl_stream_configuration_private_t *ftl) {
   }
 
   ftl->ingest_socket = sock;
-  
+
   return FTL_SUCCESS;
 }
 
@@ -150,7 +150,7 @@ ftl_status_t _ingest_connect(ftl_stream_configuration_private_t *ftl) {
 
     if (!ftl_get_hmac(ftl->ingest_socket, ftl->key, ftl->hmacBuffer)) {
       FTL_LOG(ftl, FTL_LOG_ERROR, "could not get a signed HMAC!");
-      response_code = FTL_INGEST_NO_RESPONSE;
+      response_code = (ftl_response_code_t)FTL_INGEST_NO_RESPONSE;
       break;
     }
 
@@ -228,31 +228,31 @@ ftl_status_t _ingest_connect(ftl_stream_configuration_private_t *ftl) {
     ftl_set_state(ftl, FTL_CONNECTED);
 
     if (os_semaphore_create(&ftl->connection_thread_shutdown, "/ConnectionThreadShutdown", O_CREAT, 0) < 0) {
-        response_code = FTL_MALLOC_FAILURE;
+        response_code = (ftl_response_code_t)FTL_MALLOC_FAILURE;
         break;
     }
 
     if (os_semaphore_create(&ftl->keepalive_thread_shutdown, "/KeepAliveThreadShutdown", O_CREAT, 0) < 0) {
-        response_code = FTL_MALLOC_FAILURE;
+        response_code = (ftl_response_code_t)FTL_MALLOC_FAILURE;
         break;
     }
 
     ftl_set_state(ftl, FTL_CXN_STATUS_THRD);
     if ((os_create_thread(&ftl->connection_thread, NULL, connection_status_thread, ftl)) != 0) {
       ftl_clear_state(ftl, FTL_CXN_STATUS_THRD);
-      response_code = FTL_MALLOC_FAILURE;
+      response_code = (ftl_response_code_t)FTL_MALLOC_FAILURE;
       break;
     }
 
     ftl_set_state(ftl, FTL_KEEPALIVE_THRD);
     if ((os_create_thread(&ftl->keepalive_thread, NULL, control_keepalive_thread, ftl)) != 0) {
       ftl_clear_state(ftl, FTL_KEEPALIVE_THRD);\
-      response_code = FTL_MALLOC_FAILURE;
+      response_code = (ftl_response_code_t)FTL_MALLOC_FAILURE;
       break;
     }
 
     FTL_LOG(ftl, FTL_LOG_INFO, "Successfully connected to ingest.  Media will be sent to port %d\n", ftl->media.assigned_port);
-  
+
     return FTL_SUCCESS;
   } while (0);
 
@@ -441,7 +441,7 @@ OS_THREAD_ROUTINE connection_status_thread(void *data)
     // We ping every 5 seconds, but don't timeout the connection until 30 seconds has passed
     // without hearing anything back from the ingest. This time is high, but some some poor networks
     // this can happen.
-    int keepalive_is_late = 6 * KEEPALIVE_FREQUENCY_MS; 
+    int keepalive_is_late = 6 * KEEPALIVE_FREQUENCY_MS;
 
     gettimeofday(&last_ping, NULL);
 
@@ -529,7 +529,7 @@ OS_THREAD_ROUTINE connection_status_thread(void *data)
         enqueue_status_msg(ftl, &status);
 
         // Exit the loop.
-        break;		
+        break;
     }
 
     FTL_LOG(ftl, FTL_LOG_INFO, "Exited connection_status_thread");
@@ -598,7 +598,7 @@ ftl_status_t _log_response(ftl_stream_configuration_private_t *ftl, int response
     case FTL_INGEST_RESP_UNKNOWN:
         FTL_LOG(ftl, FTL_LOG_ERROR, "Ingest unknown response.");
         return FTL_INTERNAL_ERROR;
-  }    
+  }
 
   return FTL_UNKNOWN_ERROR_CODE;
 }
